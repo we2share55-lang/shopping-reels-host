@@ -64,6 +64,9 @@ def main() -> None:
     ap.add_argument("--caption-file", required=True, help="UTF-8 캡션 txt")
     ap.add_argument("--thumb-offset-ms", type=int, default=3200, help="커버로 쓸 프레임 시각(ms)")
     ap.add_argument("--publish", action="store_true", help="실제로 게시한다 (없으면 점검만)")
+    ap.add_argument("--no-ai-label", action="store_true", help="AI 라벨(is_ai_generated)을 켜지 않는다")
+    ap.add_argument("--no-paid-partnership", action="store_true",
+                    help="협찬 광고 레이블(is_paid_partnership)을 켜지 않는다")
     args = ap.parse_args()
 
     load_env(REPO / ".env")
@@ -88,10 +91,17 @@ def main() -> None:
         print("--publish 없이 실행됨 — 여기서 멈춤 (아무것도 게시하지 않았습니다)")
         return
 
-    container = call("POST", f"{GRAPH}/{user}/media", {
+    params = {
         "media_type": "REELS", "video_url": args.video_url, "caption": caption,
         "thumb_offset": args.thumb_offset_ms, "access_token": token,
-    })["id"]
+    }
+    # 기본으로 AI 라벨과 협찬 광고(유료 파트너십) 라벨을 함께 건다. 합성 음성/AI 영상이 들어가고 쿠팡 파트너스 영상이다.
+    if not args.no_ai_label:
+        params["is_ai_generated"] = "true"
+    if not args.no_paid_partnership:
+        params["is_paid_partnership"] = "true"
+    print(f"라벨: AI={'is_ai_generated' in params}, 협찬 광고={'is_paid_partnership' in params}")
+    container = call("POST", f"{GRAPH}/{user}/media", params)["id"]
     print(f"컨테이너 생성: {container}")
 
     status = "UNKNOWN"
