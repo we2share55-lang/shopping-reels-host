@@ -63,6 +63,7 @@ def main() -> None:
     ap.add_argument("--video-url", required=True, help="공개 접근 가능한 mp4 URL")
     ap.add_argument("--caption-file", required=True, help="UTF-8 캡션 txt")
     ap.add_argument("--thumb-offset-ms", type=int, default=3200, help="커버로 쓸 프레임 시각(ms)")
+    ap.add_argument("--cover-url", help="릴스 커버로 쓸 공개 이미지 URL (jpg). 없으면 --thumb-offset-ms 프레임")
     ap.add_argument("--publish", action="store_true", help="실제로 게시한다 (없으면 점검만)")
     ap.add_argument("--no-ai-label", action="store_true", help="AI 라벨(is_ai_generated)을 켜지 않는다")
     args = ap.parse_args()
@@ -84,6 +85,14 @@ def main() -> None:
     except Exception as e:  # noqa: BLE001
         raise SystemExit(f"영상 URL 에 접근할 수 없습니다: {e}")
 
+    if args.cover_url:
+        try:
+            with urllib.request.urlopen(urllib.request.Request(args.cover_url, method="HEAD"), timeout=30) as r:
+                print(f"커버 URL 확인: HTTP {r.status}, {r.headers.get('Content-Type')}, "
+                      f"{r.headers.get('Content-Length')} bytes")
+        except Exception as e:  # noqa: BLE001
+            raise SystemExit(f"커버 URL 에 접근할 수 없습니다: {e}")
+
     print(f"캡션 {len(caption)}자:\n---\n{caption}\n---")
     if not args.publish:
         print("--publish 없이 실행됨 — 여기서 멈춤 (아무것도 게시하지 않았습니다)")
@@ -93,6 +102,8 @@ def main() -> None:
         "media_type": "REELS", "video_url": args.video_url, "caption": caption,
         "thumb_offset": args.thumb_offset_ms, "access_token": token,
     }
+    if args.cover_url:
+        params["cover_url"] = args.cover_url  # 지정하면 thumb_offset 보다 우선한다
     # 기본으로 AI 라벨을 건다. 협찬 광고(유료 파트너십) 라벨은 Content Publishing API 가 지원하지 않는다
     # (is_paid_partnership -> "Unsupported Param", 2026-10-27 확인). 게시 후 앱에서 직접 켠다.
     if not args.no_ai_label:
